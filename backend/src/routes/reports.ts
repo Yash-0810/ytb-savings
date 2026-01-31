@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { getDatabase } from '../db/database';
+import { query } from '../db/database';
 import { AuthRequest, authenticateToken } from '../middleware/auth';
 
 const router = Router();
@@ -8,22 +8,23 @@ const router = Router();
 router.get('/daily', authenticateToken, async (req: AuthRequest, res: Response) => {
   const { date } = req.query;
   const userId = req.userId;
-  const db = getDatabase();
 
   const reportDate = (date as string) || new Date().toISOString().split('T')[0];
 
   try {
-    const transactions = db
-      .prepare('SELECT * FROM transactions WHERE user_id = ? AND date = ? ORDER BY created_at DESC')
-      .all(userId, reportDate);
+    const result = await query(
+      'SELECT * FROM transactions WHERE user_id = $1 AND date = $2 ORDER BY created_at DESC',
+      [userId, reportDate]
+    );
+    const transactions = result.rows;
 
-    const totalDebits = (transactions as any[])
-      .filter((t) => t.type === 'debit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalDebits = transactions
+      .filter((t: any) => t.type === 'debit')
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
 
-    const totalCredits = (transactions as any[])
-      .filter((t) => t.type === 'credit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalCredits = transactions
+      .filter((t: any) => t.type === 'credit')
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
 
     res.json({
       date: reportDate,
@@ -41,22 +42,23 @@ router.get('/daily', authenticateToken, async (req: AuthRequest, res: Response) 
 router.get('/monthly', authenticateToken, async (req: AuthRequest, res: Response) => {
   const { month } = req.query;
   const userId = req.userId;
-  const db = getDatabase();
 
   const reportMonth = (month as string) || new Date().toISOString().slice(0, 7);
 
   try {
-    const transactions = db
-      .prepare('SELECT * FROM transactions WHERE user_id = ? AND date LIKE ? ORDER BY date DESC')
-      .all(userId, `${reportMonth}%`);
+    const result = await query(
+      'SELECT * FROM transactions WHERE user_id = $1 AND date LIKE $2 ORDER BY date DESC',
+      [userId, `${reportMonth}%`]
+    );
+    const transactions = result.rows;
 
-    const totalDebits = (transactions as any[])
-      .filter((t) => t.type === 'debit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalDebits = transactions
+      .filter((t: any) => t.type === 'debit')
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
 
-    const totalCredits = (transactions as any[])
-      .filter((t) => t.type === 'credit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalCredits = transactions
+      .filter((t: any) => t.type === 'credit')
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
 
     res.json({
       month: reportMonth,
@@ -74,35 +76,35 @@ router.get('/monthly', authenticateToken, async (req: AuthRequest, res: Response
 router.get('/annual', authenticateToken, async (req: AuthRequest, res: Response) => {
   const { year } = req.query;
   const userId = req.userId;
-  const db = getDatabase();
 
   const reportYear = parseInt(year as string) || new Date().getFullYear();
 
   try {
-    const transactions = db
-      .prepare('SELECT * FROM transactions WHERE user_id = ? AND date LIKE ? ORDER BY date DESC')
-      .all(userId, `${reportYear}%`);
+    const result = await query(
+      'SELECT * FROM transactions WHERE user_id = $1 AND date LIKE $2 ORDER BY date DESC',
+      [userId, `${reportYear}%`]
+    );
+    const transactions = result.rows;
 
-    const totalDebits = (transactions as any[])
-      .filter((t) => t.type === 'debit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalDebits = transactions
+      .filter((t: any) => t.type === 'debit')
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
 
-    const totalCredits = (transactions as any[])
-      .filter((t) => t.type === 'credit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalCredits = transactions
+      .filter((t: any) => t.type === 'credit')
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
 
     // Monthly breakdown
-    const monthlyMap: { [key: string]: any } = {};
+    const monthlyMap: { [key: string]: any[] } = {};
     (transactions as any[]).forEach((t) => {
       const monthKey = t.date.slice(0, 7);
       if (!monthlyMap[monthKey]) {
-        monthlyMap[monthKey] = { transactions: [] };
+        monthlyMap[monthKey] = [];
       }
-      monthlyMap[monthKey].transactions.push(t);
+      monthlyMap[monthKey].push(t);
     });
 
-    const monthlyData = Object.entries(monthlyMap).map(([month, data]: any) => {
-      const monthTransactions = data.transactions;
+    const monthlyData = Object.entries(monthlyMap).map(([month, monthTransactions]) => {
       const monthDebits = monthTransactions
         .filter((t: any) => t.type === 'debit')
         .reduce((sum: number, t: any) => sum + t.amount, 0);
@@ -135,7 +137,6 @@ router.get('/annual', authenticateToken, async (req: AuthRequest, res: Response)
 router.get('/weekly', authenticateToken, async (req: AuthRequest, res: Response) => {
   const { date } = req.query;
   const userId = req.userId;
-  const db = getDatabase();
 
   const selectedDate = new Date((date as string) || new Date());
   const dayOfWeek = selectedDate.getDay();
@@ -147,19 +148,19 @@ router.get('/weekly', authenticateToken, async (req: AuthRequest, res: Response)
     .split('T')[0];
 
   try {
-    const transactions = db
-      .prepare(
-        'SELECT * FROM transactions WHERE user_id = ? AND date >= ? AND date <= ? ORDER BY date DESC'
-      )
-      .all(userId, startDateStr, endDateStr);
+    const result = await query(
+      'SELECT * FROM transactions WHERE user_id = $1 AND date >= $2 AND date <= $3 ORDER BY date DESC',
+      [userId, startDateStr, endDateStr]
+    );
+    const transactions = result.rows;
 
-    const totalDebits = (transactions as any[])
-      .filter((t) => t.type === 'debit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalDebits = transactions
+      .filter((t: any) => t.type === 'debit')
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
 
-    const totalCredits = (transactions as any[])
-      .filter((t) => t.type === 'credit')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalCredits = transactions
+      .filter((t: any) => t.type === 'credit')
+      .reduce((sum: number, t: any) => sum + t.amount, 0);
 
     res.json({
       week: `${startDateStr} to ${endDateStr}`,
@@ -174,3 +175,4 @@ router.get('/weekly', authenticateToken, async (req: AuthRequest, res: Response)
 });
 
 export default router;
+

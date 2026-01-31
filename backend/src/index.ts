@@ -16,12 +16,14 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize database
-try {
-  initializeDatabase();
-} catch (error) {
-  console.error('Failed to initialize database:', error);
-  process.exit(1);
-}
+initializeDatabase()
+  .then(() => {
+    console.log('Database initialized successfully');
+  })
+  .catch((error) => {
+    console.error('Failed to initialize database:', error);
+    process.exit(1);
+  });
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -34,11 +36,6 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start server
-try {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-} catch (error) {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-}
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

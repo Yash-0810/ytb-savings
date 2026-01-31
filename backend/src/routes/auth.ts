@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { getDatabase } from '../db/database';
+import { query } from '../db/database';
 import { 
   hashPassword, 
   verifyPassword, 
@@ -23,11 +23,9 @@ router.post('/signup', async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
-  const db = getDatabase();
-
   try {
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-    if (existingUser) {
+    const existingUser = await query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
@@ -36,9 +34,10 @@ router.post('/signup', async (req: AuthRequest, res: Response) => {
     const otpId = randomUUID();
     const expiryTime = getOTPExpiryTime();
 
-    db.prepare(
-      'INSERT INTO otp_verifications (id, email, otp, expires_at) VALUES (?, ?, ?, ?)'
-    ).run(otpId, email, otp, expiryTime.toISOString());
+    await query(
+      'INSERT INTO otp_verifications (id, email, otp, expires_at) VALUES ($1, $2, $3, $4)',
+      [otpId, email, otp, expiryTime.toISOString()]
+    );
 
     await sendOTPEmail(email, otp);
 
@@ -61,21 +60,20 @@ router.post('/verify-otp', async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
-  const db = getDatabase();
-
   try {
     // Check OTP
-    const otpRecord = db.prepare(
-      'SELECT * FROM otp_verifications WHERE email = ? AND otp = ? AND expires_at > datetime("now")'
-    ).get(email, otp);
+    const otpRecord = await query(
+      'SELECT * FROM otp_verifications WHERE email = $1 AND otp = $2 AND expires_at > NOW()',
+      [email, otp]
+    );
 
-    if (!otpRecord) {
+    if (otpRecord.rows.length === 0) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
     // Check if email already registered
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-    if (existingUser) {
+    const existingUser = await query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
@@ -83,12 +81,13 @@ router.post('/verify-otp', async (req: AuthRequest, res: Response) => {
     const userId = randomUUID();
     const hashedPassword = await hashPassword(password);
 
-    db.prepare(
-      'INSERT INTO users (id, email, name, password, is_verified) VALUES (?, ?, ?, ?, 1)'
-    ).run(userId, email, name, hashedPassword);
+    await query(
+      'INSERT INTO users (id, email, name, password, is_verified) VALUES ($1, $2, $3, $4, 1)',
+      [userId, email, name, hashedPassword]
+    );
 
     // Delete OTP record
-    db.prepare('DELETE FROM otp_verifications WHERE email = ?').run(email);
+    await query('DELETE FROM otp_verifications WHERE email = $1', [email]);
 
     const token = generateToken(userId);
 
@@ -110,24 +109,24 @@ router.post('/login', async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: 'Missing email or password' });
   }
 
-  const db = getDatabase();
-
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const userResult = await query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = userResult.rows[0];
+
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const isPasswordValid = await verifyPassword(password, (user as any).password);
+    const isPasswordValid = await verifyPassword(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = generateToken((user as any).id);
+    const token = generateToken(user.id);
 
     res.json({
       token,
-      user: { id: (user as any).id, email: (user as any).email, name: (user as any).name },
+      user: { id: user.id, email: user.email, name: user.name },
     });
   } catch (error) {
     res.status(500).json({ message: 'Login failed' });
@@ -136,33 +135,34 @@ router.post('/login', async (req: AuthRequest, res: Response) => {
 
 // Google OAuth callback
 router.post('/google', async (req: AuthRequest, res: Response) => {
-  const { googleId, email, name, picture } = req.body;
+  const { googleId, email, name } = req.body;
 
   if (!googleId || !email) {
     return res.status(400).json({ message: 'Missing Google authentication data' });
   }
 
-  const db = getDatabase();
-
   try {
     // Check if user exists
-    let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId) as any;
+    let userResult = await query('SELECT * FROM users WHERE google_id = $1', [googleId]);
+    let user = userResult.rows[0];
 
     if (!user) {
       // Check if email exists
-      user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+      userResult = await query('SELECT * FROM users WHERE email = $1', [email]);
+      user = userResult.rows[0];
 
       if (!user) {
         // Create new user
         const userId = randomUUID();
-        db.prepare(
-          'INSERT INTO users (id, email, name, google_id, is_verified) VALUES (?, ?, ?, ?, 1)'
-        ).run(userId, email, name || 'User', googleId);
+        await query(
+          'INSERT INTO users (id, email, name, google_id, is_verified) VALUES ($1, $2, $3, $4, 1)',
+          [userId, email, name || 'User', googleId]
+        );
 
-        user = { id: userId, email, name: name || 'User', google_id: googleId };
+        user = { id: userId, email, name: name || 'User' };
       } else {
         // Link Google ID to existing user
-        db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(googleId, user.id);
+        await query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
       }
     }
 
@@ -186,10 +186,9 @@ router.post('/forgot-password', async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: 'Email is required' });
   }
 
-  const db = getDatabase();
-
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+    const userResult = await query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = userResult.rows[0];
 
     if (!user) {
       // Don't reveal if email exists (security best practice)
@@ -201,9 +200,10 @@ router.post('/forgot-password', async (req: AuthRequest, res: Response) => {
     const tokenId = randomUUID();
     const expiryTime = getResetTokenExpiryTime();
 
-    db.prepare(
-      'INSERT INTO password_reset_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)'
-    ).run(tokenId, user.id, resetToken, expiryTime.toISOString());
+    await query(
+      'INSERT INTO password_reset_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)',
+      [tokenId, user.id, resetToken, expiryTime.toISOString()]
+    );
 
     // Send email
     await sendPasswordResetEmail(email, resetToken, user.name);
@@ -223,12 +223,12 @@ router.post('/reset-password', async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: 'Token and new password are required' });
   }
 
-  const db = getDatabase();
-
   try {
-    const resetRecord = db.prepare(
-      'SELECT * FROM password_reset_tokens WHERE token = ? AND expires_at > datetime("now")'
-    ).get(token) as any;
+    const resetResult = await query(
+      'SELECT * FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
+      [token]
+    );
+    const resetRecord = resetResult.rows[0];
 
     if (!resetRecord) {
       return res.status(400).json({ message: 'Invalid or expired reset token' });
@@ -236,10 +236,10 @@ router.post('/reset-password', async (req: AuthRequest, res: Response) => {
 
     // Update password
     const hashedPassword = await hashPassword(newPassword);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, resetRecord.user_id);
+    await query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, resetRecord.user_id]);
 
     // Delete reset token
-    db.prepare('DELETE FROM password_reset_tokens WHERE token = ?').run(token);
+    await query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
 
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
@@ -251,10 +251,11 @@ router.post('/reset-password', async (req: AuthRequest, res: Response) => {
 // Get user profile
 router.get('/profile/:userId', authenticateToken, async (req: AuthRequest, res: Response) => {
   const { userId } = req.params;
-  const db = getDatabase();
 
   try {
-    const profile = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(userId);
+    const profileResult = await query('SELECT * FROM user_profiles WHERE user_id = $1', [userId]);
+    const profile = profileResult.rows[0];
+
     if (profile) {
       res.json(profile);
     } else {
@@ -275,7 +276,6 @@ router.get('/profile/:userId', authenticateToken, async (req: AuthRequest, res: 
 router.post('/profile', authenticateToken, async (req: AuthRequest, res: Response) => {
   const { user_id, phone, address, city, state, zip_code } = req.body;
   const authenticatedUserId = req.userId;
-  const db = getDatabase();
 
   // Security check: user can only update their own profile
   if (user_id !== authenticatedUserId) {
@@ -283,16 +283,18 @@ router.post('/profile', authenticateToken, async (req: AuthRequest, res: Respons
   }
 
   try {
-    const existing = db.prepare('SELECT * FROM user_profiles WHERE user_id = ?').get(user_id);
+    const existing = await query('SELECT * FROM user_profiles WHERE user_id = $1', [user_id]);
 
-    if (existing) {
-      db.prepare(
-        'UPDATE user_profiles SET phone = ?, address = ?, city = ?, state = ?, zip_code = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?'
-      ).run(phone || '', address || '', city || '', state || '', zip_code || '', user_id);
+    if (existing.rows.length > 0) {
+      await query(
+        'UPDATE user_profiles SET phone = $1, address = $2, city = $3, state = $4, zip_code = $5, updated_at = NOW() WHERE user_id = $6',
+        [phone || '', address || '', city || '', state || '', zip_code || '', user_id]
+      );
     } else {
-      db.prepare(
-        'INSERT INTO user_profiles (user_id, phone, address, city, state, zip_code) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(user_id, phone || '', address || '', city || '', state || '', zip_code || '');
+      await query(
+        'INSERT INTO user_profiles (user_id, phone, address, city, state, zip_code) VALUES ($1, $2, $3, $4, $5, $6)',
+        [user_id, phone || '', address || '', city || '', state || '', zip_code || '']
+      );
     }
 
     res.json({ message: 'Profile updated successfully' });
@@ -303,3 +305,4 @@ router.post('/profile', authenticateToken, async (req: AuthRequest, res: Respons
 });
 
 export default router;
+

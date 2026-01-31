@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { getDatabase } from '../db/database';
+import { query } from '../db/database';
 import { AuthRequest, authenticateToken } from '../middleware/auth';
 import { randomUUID } from 'crypto';
 
@@ -7,14 +7,14 @@ const router = Router();
 
 // Get all transactions for user
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
-  const db = getDatabase();
   const userId = req.userId;
 
   try {
-    const transactions = db
-      .prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC')
-      .all(userId);
-    res.json(transactions);
+    const result = await query(
+      'SELECT * FROM transactions WHERE user_id = $1 ORDER BY date DESC',
+      [userId]
+    );
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch transactions' });
   }
@@ -29,13 +29,13 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
-  const db = getDatabase();
   const id = randomUUID();
 
   try {
-    db.prepare(
-      'INSERT INTO transactions (id, user_id, type, amount, description, category, date, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(id, userId, type, amount, description, category || null, date, payment_method || 'cash');
+    await query(
+      'INSERT INTO transactions (id, user_id, type, amount, description, category, date, payment_method) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [id, userId, type, amount, description, category || null, date, payment_method || 'cash']
+    );
 
     res.json({ id, type, amount, description, category, date, payment_method: payment_method || 'cash' });
   } catch (error) {
@@ -47,16 +47,18 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const userId = req.userId;
-  const db = getDatabase();
 
   try {
-    const transaction = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(id, userId);
+    const transaction = await query(
+      'SELECT * FROM transactions WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
 
-    if (!transaction) {
+    if (transaction.rows.length === 0) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
 
-    db.prepare('DELETE FROM transactions WHERE id = ?').run(id);
+    await query('DELETE FROM transactions WHERE id = $1', [id]);
     res.json({ message: 'Transaction deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete transaction' });
@@ -64,3 +66,4 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
 });
 
 export default router;
+
