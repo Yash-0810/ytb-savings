@@ -27,8 +27,23 @@ app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/reports', reportRoutes);
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'YTB Savings API Server',
+    status: 'running',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth/*',
+      transactions: '/api/transactions/*',
+      reports: '/api/reports/*'
+    }
+  });
+});
+
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK' });
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, () => {
