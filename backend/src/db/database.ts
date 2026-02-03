@@ -41,7 +41,7 @@ async function createPostgreSQLTables(client: PoolClient): Promise<void> {
       name TEXT NOT NULL,
       password TEXT,
       google_id TEXT UNIQUE,
-      is_verified BOOLEAN DEFAULT 0,
+      is_verified BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
   `);
