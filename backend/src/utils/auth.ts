@@ -1,4 +1,4 @@
-import bcryptjs from 'bcryptjs';
+import * as bcryptjs from 'bcryptjs';
 import jwt from 'jwt-simple';
 import crypto from 'crypto';
 

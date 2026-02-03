@@ -1,9 +1,7 @@
-import pg, { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool, PoolClient, QueryResult } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
-
-const { Pool: PgPool } = pg;
 
 // PostgreSQL connection pool
 let pool: Pool | null = null;
@@ -14,7 +12,7 @@ const usePostgreSQL = process.env.DATABASE_URL?.startsWith('postgresql://');
 async function initializePostgreSQL(): Promise<Pool> {
   const databaseUrl = process.env.DATABASE_URL!;
   
-  pool = new PgPool({
+  pool = new Pool({
     connectionString: databaseUrl,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 20,
