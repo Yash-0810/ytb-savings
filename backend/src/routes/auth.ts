@@ -29,23 +29,62 @@ router.post('/signup', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // Generate and send OTP
-    const otp = generateOTP();
-    const otpId = randomUUID();
-    const expiryTime = getOTPExpiryTime();
+    // Check if email is configured
+    const emailConfigured = process.env.GMAIL_EMAIL && process.env.GMAIL_APP_PASSWORD;
 
-    await query(
-      'INSERT INTO otp_verifications (id, email, otp, expires_at) VALUES ($1, $2, $3, $4)',
-      [otpId, email, otp, expiryTime.toISOString()]
-    );
+    if (emailConfigured) {
+      // Generate and send OTP
+      const otp = generateOTP();
+      const otpId = randomUUID();
+      const expiryTime = getOTPExpiryTime();
 
-    await sendOTPEmail(email, otp);
+      await query(
+        'INSERT INTO otp_verifications (id, email, otp, expires_at) VALUES ($1, $2, $3, $4)',
+        [otpId, email, otp, expiryTime.toISOString()]
+      );
 
-    res.json({
-      message: 'OTP sent to email. Please verify to complete signup.',
-      requiresOTP: true,
-      email,
-    });
+      try {
+        await sendOTPEmail(email, otp);
+        res.json({
+          message: 'OTP sent to email. Please verify to complete signup.',
+          requiresOTP: true,
+          email,
+        });
+      } catch (emailError) {
+        console.error('Email sending failed, creating account without verification:', emailError);
+        // If email fails, create account directly
+        await query('DELETE FROM otp_verifications WHERE email = $1', [email]);
+        
+        const userId = randomUUID();
+        const hashedPassword = await hashPassword(password);
+        await query(
+          'INSERT INTO users (id, email, name, password, is_verified) VALUES ($1, $2, $3, $4, TRUE)',
+          [userId, email, name, hashedPassword]
+        );
+
+        const token = generateToken(userId);
+        res.json({
+          token,
+          user: { id: userId, email, name },
+          message: 'Account created successfully (email verification unavailable)',
+        });
+      }
+    } else {
+      // No email configured, create account directly
+      const userId = randomUUID();
+      const hashedPassword = await hashPassword(password);
+      await query(
+        'INSERT INTO users (id, email, name, password, is_verified) VALUES ($1, $2, $3, $4, TRUE)',
+        [userId, email, name, hashedPassword]
+      );
+
+      const token = generateToken(userId);
+      res.json({
+        token,
+        user: { id: userId, email, name },
+        message: 'Account created successfully',
+      });
+    }
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ message: 'Signup failed' });
