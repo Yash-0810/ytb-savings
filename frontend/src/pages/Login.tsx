@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+  import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
@@ -20,9 +20,13 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
+      console.log('Login attempt for:', email);
       await login(email, password);
-      navigate('/dashboard');
+      console.log('Login successful, redirecting to dashboard...');
+      // Use location.replace for a clean redirect
+      window.location.replace('/dashboard');
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);
@@ -30,9 +34,14 @@ export const Login: React.FC = () => {
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
+    console.log('Google login attempt started');
+    console.log('Credential response:', credentialResponse);
+    
     try {
+      setLoading(true);
       const decoded: any = jwtDecode(credentialResponse.credential);
-      
+      console.log('Decoded token:', decoded);
+
       const response = await API.post('/auth/google', {
         googleId: decoded.sub,
         email: decoded.email,
@@ -40,12 +49,22 @@ export const Login: React.FC = () => {
         picture: decoded.picture,
       });
 
+      console.log('Backend response:', response.data);
+
       const { token, user } = response.data;
+      
+      // Store auth data synchronously
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-
-      navigate('/dashboard');
+      
+      console.log('Auth data stored, redirecting to dashboard...');
+      
+      // Use location.replace for a clean redirect (doesn't add to history)
+      // This ensures a full page navigation
+      window.location.replace('/dashboard');
     } catch (err: any) {
+      console.error('Google login error:', err);
+      setLoading(false);
       setError(err.response?.data?.message || 'Google login failed');
     }
   };
@@ -132,7 +151,10 @@ export const Login: React.FC = () => {
         <div className="flex justify-center">
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
-            onError={() => setError('Google login failed')}
+            onError={() => {
+              setLoading(false);
+              setError('Google login failed');
+            }}
           />
         </div>
 

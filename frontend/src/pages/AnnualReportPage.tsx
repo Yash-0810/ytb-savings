@@ -26,6 +26,14 @@ export const AnnualReportPage: React.FC = () => {
     }
   };
 
+  const downloadPDF = () => {
+    if (!report) return;
+    
+    // Open PDF in new window/tab
+    const pdfUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/reports/annual/pdf?year=${selectedYear}`;
+    window.open(pdfUrl, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar user={user} onLogout={logout} />
@@ -34,18 +42,30 @@ export const AnnualReportPage: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Annual Report</h1>
 
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <label className="block text-gray-700 font-semibold mb-2">Select Year</label>
-          <select
-            value={String(selectedYear)}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-          >
-            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
-              <option key={year} value={String(year)}>
-                {year}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-4 items-end">
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">Select Year</label>
+              <select
+                value={String(selectedYear)}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              >
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                  <option key={year} value={String(year)}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {report && (
+              <button
+                onClick={downloadPDF}
+                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition"
+              >
+                📄 Download PDF
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (

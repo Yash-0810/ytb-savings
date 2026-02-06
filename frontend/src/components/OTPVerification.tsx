@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import API from '../api/client';
-import { useNavigate } from 'react-router-dom';
 
 interface OTPVerificationProps {
   email: string;
@@ -18,7 +17,7 @@ export const OTPVerification: React.FC<OTPVerificationProps> = ({
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
+
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,11 +33,13 @@ export const OTPVerification: React.FC<OTPVerificationProps> = ({
       });
 
       const { token, user } = response.data;
+      
+      // Store auth data
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
+      // Call onSuccess callback to handle redirect
       onSuccess(token, user);
-      navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'OTP verification failed');
     } finally {

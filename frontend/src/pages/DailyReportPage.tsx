@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DailyReport, Transaction } from '../types';
 import { Navbar } from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import { reportAPI } from '../api/client';
 
 interface DailyReportWithTransactions extends DailyReport {
   transactions?: Transaction[];
@@ -21,13 +21,7 @@ export const DailyReportPage: React.FC = () => {
   const fetchReport = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `http://localhost:8000/api/reports/daily?date=${selectedDate}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await reportAPI.getDaily(selectedDate);
       setReport(response.data);
     } catch (error) {
       console.error('Failed to fetch daily report', error);
@@ -64,6 +58,14 @@ export const DailyReportPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const downloadPDF = () => {
+    if (!report) return;
+    
+    // Open PDF in new window/tab
+    const pdfUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/reports/daily/pdf?date=${selectedDate}`;
+    window.open(pdfUrl, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-500 to-orange-600">
       <Navbar user={user} onLogout={logout} />
@@ -84,12 +86,20 @@ export const DailyReportPage: React.FC = () => {
               />
             </div>
             {report && (
-              <button
-                onClick={downloadCSV}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
-              >
-                📥 Download CSV
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={downloadPDF}
+                  className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition"
+                >
+                  📄 Download PDF
+                </button>
+                <button
+                  onClick={downloadCSV}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+                >
+                  📥 Download CSV
+                </button>
+              </div>
             )}
           </div>
 

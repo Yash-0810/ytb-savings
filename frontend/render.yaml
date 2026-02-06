@@ -9,6 +9,8 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://ytb-savings.onrender.com/api
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
     headers:
       - path: /*
         name: X-Frame-Options

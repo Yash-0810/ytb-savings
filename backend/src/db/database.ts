@@ -218,22 +218,51 @@ export async function query(text: string, params?: any[]): Promise<QueryResult<a
   }
   
   // SQLite synchronous query wrapper
-  const stmt = sqliteDb.prepare(text);
-  let rows: any[];
-  if (params && params.length > 0) {
-    rows = stmt.all(...params);
-  } else {
-    rows = stmt.all();
+  try {
+    const queryText = text.trim().toUpperCase();
+    const isSelect = queryText.startsWith('SELECT');
+    
+    let rows: any[] = [];
+    let rowCount = 0;
+    
+    if (params && params.length > 0) {
+      // Replace $1, $2, etc. with ? for SQLite
+      let sqliteText = text;
+      for (let i = 1; i <= params.length; i++) {
+        sqliteText = sqliteText.replace(`$${i}`, '?');
+      }
+      
+      if (isSelect) {
+        const stmt = sqliteDb.prepare(sqliteText);
+        rows = stmt.all(...params);
+        rowCount = rows.length;
+      } else {
+        const stmt = sqliteDb.prepare(sqliteText);
+        const info = stmt.run(...params);
+        rowCount = info.changes;
+      }
+    } else {
+      if (isSelect) {
+        const stmt = sqliteDb.prepare(text);
+        rows = stmt.all();
+        rowCount = rows.length;
+      } else {
+        const stmt = sqliteDb.prepare(text);
+        const info = stmt.run();
+        rowCount = info.changes;
+      }
+    }
+    
+    return {
+      rows,
+      rowCount,
+      command: isSelect ? 'SELECT' : queryText.split(' ')[0],
+      oid: 0,
+      fields: []
+    };
+  } catch (error: any) {
+    throw new Error(`SQLite query error: ${error.message}`);
   }
-  
-  // Return a proper QueryResult-like object
-  return {
-    rows,
-    rowCount: rows.length,
-    command: 'SELECT',
-    oid: 0,
-    fields: []
-  };
 }
 
 export async function getClient(): Promise<PoolClient | any> {

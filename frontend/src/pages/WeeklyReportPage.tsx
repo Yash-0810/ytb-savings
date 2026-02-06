@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Navbar } from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import { reportAPI } from '../api/client';
 
 interface Transaction {
   id: string;
@@ -31,13 +31,7 @@ export const WeeklyReportPage: React.FC = () => {
     if (!selectedDate) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `http://localhost:8000/api/reports/weekly?date=${selectedDate}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await reportAPI.getWeekly(selectedDate);
       setReport(response.data);
     } catch (error) {
       console.error('Failed to fetch weekly report:', error);
@@ -73,6 +67,14 @@ export const WeeklyReportPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const downloadPDF = () => {
+    if (!report) return;
+    
+    // Open PDF in new window/tab
+    const pdfUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/reports/weekly/pdf?date=${selectedDate}`;
+    window.open(pdfUrl, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-500 to-purple-600">
       <Navbar user={user} onLogout={logout} />
@@ -99,12 +101,20 @@ export const WeeklyReportPage: React.FC = () => {
               {loading ? 'Loading...' : 'Generate Report'}
             </button>
             {report && (
-              <button
-                onClick={downloadCSV}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
-              >
-                📥 Download CSV
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={downloadPDF}
+                  className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition"
+                >
+                  📄 Download PDF
+                </button>
+                <button
+                  onClick={downloadCSV}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+                >
+                  📥 Download CSV
+                </button>
+              </div>
             )}
           </div>
 

@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { OTPVerification } from '../components/OTPVerification';
 import API from '../api/client';
 import { jwtDecode } from 'jwt-decode';
 import { Logo } from '../components/Logo';
+
 
 export const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -14,7 +15,7 @@ export const Signup: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
-  const navigate = useNavigate();
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,10 +33,25 @@ export const Signup: React.FC = () => {
 
     setLoading(true);
 
+
+
     try {
-      // Request OTP
-      await API.post('/auth/signup', { email, name, password });
-      setShowOTPVerification(true);
+      // Request OTP or create account directly
+      const response = await API.post('/auth/signup', { email, name, password });
+      console.log('Signup response:', response.data);
+      
+      // Check if account was created directly (no OTP needed)
+      if (response.data.token && response.data.user) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        console.log('Direct signup successful, redirecting to dashboard...');
+        // Use location.replace for a clean redirect
+        window.location.replace('/dashboard');
+      } else {
+        // Requires OTP verification
+        console.log('OTP verification required');
+        setShowOTPVerification(true);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Signup failed');
     } finally {
@@ -43,16 +59,24 @@ export const Signup: React.FC = () => {
     }
   };
 
+
+
   const handleOTPSuccess = (token: string, user: any) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
-    navigate('/dashboard');
+    // Use location.replace for a clean redirect
+    window.location.replace('/dashboard');
   };
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
+    console.log('Google signup attempt started');
+    console.log('Credential response:', credentialResponse);
+    
     try {
+      setLoading(true);
       const decoded: any = jwtDecode(credentialResponse.credential);
-      
+      console.log('Decoded token:', decoded);
+
       const response = await API.post('/auth/google', {
         googleId: decoded.sub,
         email: decoded.email,
@@ -60,15 +84,25 @@ export const Signup: React.FC = () => {
         picture: decoded.picture,
       });
 
+      console.log('Backend response:', response.data);
+
       const { token, user } = response.data;
+      
+      // Store auth data synchronously
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-
-      navigate('/dashboard');
+      
+      console.log('Auth data stored, redirecting to dashboard...');
+      
+      // Use location.replace for a clean redirect
+      window.location.replace('/dashboard');
     } catch (err: any) {
+      console.error('Google signup error:', err);
+      setLoading(false);
       setError(err.response?.data?.message || 'Google signup failed');
     }
   };
+
 
   if (showOTPVerification) {
     return (

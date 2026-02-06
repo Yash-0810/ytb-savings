@@ -31,6 +31,7 @@ export const transactionAPI = {
 
 export const reportAPI = {
   getDaily: (date?: string) => API.get('/reports/daily', { params: { date } }),
+  getWeekly: (date?: string) => API.get('/reports/weekly', { params: { date } }),
   getMonthly: (month?: string) => API.get('/reports/monthly', { params: { month } }),
   getAnnual: (year?: number) => API.get('/reports/annual', { params: { year } }),
 };
