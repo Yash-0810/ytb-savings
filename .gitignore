@@ -11,3 +11,6 @@ frontend/dist
 backend/node_modules
 *.sqlite
 *.db
+*.db-shm
+*.db-wal
+*.tsbuildinfo
