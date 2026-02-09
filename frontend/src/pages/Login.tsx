@@ -23,8 +23,8 @@ export const Login: React.FC = () => {
       console.log('Login attempt for:', email);
       await login(email, password);
       console.log('Login successful, redirecting to dashboard...');
-      // Use location.replace for a clean redirect
-      window.location.replace('/dashboard');
+      // Use client-side navigation
+      navigate('/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed');
@@ -58,10 +58,9 @@ export const Login: React.FC = () => {
       localStorage.setItem('user', JSON.stringify(user));
       
       console.log('Auth data stored, redirecting to dashboard...');
-      
-      // Use location.replace for a clean redirect (doesn't add to history)
-      // This ensures a full page navigation
-      window.location.replace('/dashboard');
+
+      // Use client-side navigation
+      navigate('/dashboard');
     } catch (err: any) {
       console.error('Google login error:', err);
       setLoading(false);
