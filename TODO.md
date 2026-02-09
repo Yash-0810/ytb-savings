@@ -2,4 +2,9 @@
 - [x] Modify frontend/src/pages/Login.tsx to use navigate('/dashboard') instead of window.location.replace
 - [x] Run backend build to verify TypeScript compilation
 - [x] Run frontend build and verify _redirects is in dist/
-- [ ] Deploy and test authentication flow
+- [x] Deploy and test authentication flow
+- [x] Fix vite.config.ts proxy issue for local development
+- [x] Reset database to fix schema issues
+- [x] Test API endpoints (signup, login, transactions, reports)
+- [x] Fix API calls failing with 401 by restoring Vite proxy for development
+- [x] Fix API base URL to use proxy path '/api' for development
