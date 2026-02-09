@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: npm install && npm run build
+    buildCommand: cd ../frontend && npm install && npm run build && cd ../backend && npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -17,7 +17,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        sync: false
+        value: https://ytbstorage.space
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import path from 'path';
 const cors = require('cors');
 import { initializeDatabase } from './db/database';
 import authRoutes from './routes/auth';
@@ -75,6 +76,18 @@ app.get('/', (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// SPA Fallback - serve index.html for all non-API routes
+// This allows React Router to handle frontend routes
+app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+
+app.get('*', (req, res) => {
+  // Don't handle API routes here
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ message: 'API endpoint not found' });
+  }
+  res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
 });
 
 app.listen(PORT, () => {
