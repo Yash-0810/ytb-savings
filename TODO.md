@@ -8,3 +8,4 @@
 - [x] Test API endpoints (signup, login, transactions, reports)
 - [x] Fix API calls failing with 401 by restoring Vite proxy for development
 - [x] Fix API base URL to use proxy path '/api' for development
+- [x] Commit and push all changes to Git
