@@ -11,7 +11,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  optionsSuccessStatus: 200
+}));
 app.use(express.json());
 
 initializeDatabase()
@@ -19,7 +22,7 @@ initializeDatabase()
     console.log('Database initialized successfully');
   })
   .catch((error) => {
-    console.error('Failed to initialize database:', error);
+    console.error('Failed to initialize database:', error.message);
     process.exit(1);
   });
 
