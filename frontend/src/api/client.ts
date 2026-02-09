@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 // Use environment variable for API URL, default to proxy path for development
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// In production, use the actual backend URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD ? 'https://ytb-savings.onrender.com/api' : '/api');
 
 const API = axios.create({
   baseURL: API_BASE_URL,

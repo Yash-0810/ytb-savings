@@ -1,11 +1,27 @@
-- [x] Update backend/tsconfig.json to remove "types" array for proper TypeScript type resolution
-- [x] Modify frontend/src/pages/Login.tsx to use navigate('/dashboard') instead of window.location.replace
-- [x] Run backend build to verify TypeScript compilation
-- [x] Run frontend build and verify _redirects is in dist/
-- [x] Deploy and test authentication flow
-- [x] Fix vite.config.ts proxy issue for local development
-- [x] Reset database to fix schema issues
-- [x] Test API endpoints (signup, login, transactions, reports)
-- [x] Fix API calls failing with 401 by restoring Vite proxy for development
-- [x] Fix API base URL to use proxy path '/api' for development
-- [x] Commit and push all changes to Git
+# TODO - CORS and OAuth Fixes
+
+## Fixed Issues
+- ✅ CORS origin mismatch - added multiple origins support
+- ✅ Added Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers
+- ✅ Fixed backend API URL in frontend render.yaml
+- ✅ Added production fallback for API URL in frontend
+
+## Changes Made
+
+### 1. backend/src/index.ts
+- Added multiple allowed origins for CORS (with and without www)
+- Added credentials support in CORS
+- Added COOP and COEP headers for OAuth support
+
+### 2. frontend/src/api/client.ts
+- Added production fallback for API URL
+- Will use https://ytb-savings.onrender.com/api in production
+
+### 3. frontend/render.yaml
+- Fixed VITE_API_URL to point to correct backend URL
+
+## Next Steps
+- Push changes to GitHub
+- Deploy to Render
+- Test Google OAuth signup
+
