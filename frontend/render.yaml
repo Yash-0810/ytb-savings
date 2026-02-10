@@ -12,9 +12,10 @@ services:
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
     routes:
-      - type: rewrite
+      - type: redirect
         source: /*
         destination: /index.html
+        statusCode: 200
     headers:
       - path: /*
         name: X-Frame-Options
